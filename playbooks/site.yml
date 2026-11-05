@@ -1,0 +1,82 @@
+---
+- name: Deploy Monitoring Stack
+  hosts: monitoring
+  gather_facts: true
+
+  vars:
+    project_dir: "{{ lookup('env', 'HOME') }}/monitoring-stack"
+
+  tasks:
+
+    - name: Check Docker connectivity
+      command: docker info
+      changed_when: false
+
+    - name: Create monitoring directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ project_dir }}"
+        - "{{ project_dir }}/prometheus"
+        - "{{ project_dir }}/alertmanager"
+        - "{{ project_dir }}/grafana/provisioning/datasources"
+
+    - name: Copy Docker Compose file
+      copy:
+        src: "{{ playbook_dir }}/../docker-compose.yml"
+        dest: "{{ project_dir }}/docker-compose.yml"
+        mode: '0644'
+
+    - name: Copy Prometheus configuration
+      copy:
+        src: "{{ playbook_dir }}/../prometheus/prometheus.yml"
+        dest: "{{ project_dir }}/prometheus/prometheus.yml"
+        mode: '0644'
+
+    - name: Copy Prometheus alert rules
+      copy:
+        src: "{{ playbook_dir }}/../prometheus/alert-rules.yml"
+        dest: "{{ project_dir }}/prometheus/alert-rules.yml"
+        mode: '0644'
+
+    - name: Copy Alertmanager configuration
+      copy:
+        src: "{{ playbook_dir }}/../alertmanager/alertmanager.yml"
+        dest: "{{ project_dir }}/alertmanager/alertmanager.yml"
+        mode: '0644'
+
+    - name: Copy Grafana datasource configuration
+      copy:
+        src: "{{ playbook_dir }}/../grafana/provisioning/datasources/prometheus.yml"
+        dest: "{{ project_dir }}/grafana/provisioning/datasources/prometheus.yml"
+        mode: '0644'
+
+    - name: Copy Grafana environment file
+      copy:
+        src: "{{ playbook_dir }}/../.env"
+        dest: "{{ project_dir }}/.env"
+        mode: '0600'
+
+    - name: Validate Docker Compose configuration
+      command: docker compose --env-file .env config --quiet
+      args:
+        chdir: "{{ project_dir }}"
+      changed_when: false
+
+    - name: Deploy monitoring stack
+      command: docker compose --env-file .env up -d
+      args:
+        chdir: "{{ project_dir }}"
+
+    - name: Verify running containers
+      command: docker compose --env-file .env ps
+      args:
+        chdir: "{{ project_dir }}"
+      register: monitoring_status
+      changed_when: false
+
+    - name: Display monitoring status
+      debug:
+        var: monitoring_status.stdout_lines

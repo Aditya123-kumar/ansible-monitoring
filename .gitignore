@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+
+*.log
+*.backup
+.last_successful_tag
+
+*.pem
+*.key
+secret-file
+
+*.tfstate
+*.tfstate.*
